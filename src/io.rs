@@ -18,10 +18,10 @@ pub fn write_stage(data: Vec<&Array2<f64>>,header:Vec<String>,name:String,h:f64)
     let mut row =vec!["".to_string();data.len()+2];
     for j in  0..shape[1]{
         for i in  0..shape[0]{
-            row[0] = format!("{:+1.6}",(i as f64)*h);
-            row[1] = format!("{:+1.6}",(j as f64)*h);
+            row[0] = format!("{:+e}",(i as f64)*h);
+            row[1] = format!("{:+e}",(j as f64)*h);
             for  k in 0..data.len(){
-                row[k+2]=format!("{:+1.6}",data[k][[i,j]])
+                row[k+2]=format!("{:+e}",data[k][[i,j]])
             }
             writeln!(file,"{}",row.join(",")).unwrap();
         }

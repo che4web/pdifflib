@@ -5,7 +5,7 @@ use std::fs::File;
 use std::fs;
 
 pub trait System{
-    fn next_step(&mut self,_dt:f64);
+    fn next_step(&mut self,_dt:f64,time:f64);
     fn write_mat(&mut self, time:f64);
     fn boundary_condition(&mut self);
     fn get_max_time(&self)->f64;
@@ -25,7 +25,7 @@ pub trait System{
 
         while time < self.get_max_time(){
             for _i in 0..1000{
-                self.next_step(DT);
+                self.next_step(DT,time);
                 time+=DT;
             }
             time_i+=1;
