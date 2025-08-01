@@ -1,4 +1,5 @@
 use ndarray::{Array2};
+
 pub trait Field{
     fn get_f(&self)-> &Array2<f64>;
     unsafe fn mx_b(&self,index:(usize,usize))->f64{

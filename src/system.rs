@@ -28,22 +28,26 @@ pub trait System{
             match fs::metadata(storage_path) {
                 Ok(_)=>{
                     time = self.read_mat();
+                }
+                Err(_)=>{
+                    let _file = hdf5::File::create("./storag.h5").unwrap();
+                    self.initial_condition();
+                }
+            }
+            match fs::metadata(LOG_NAME) {
+                Ok(_)=>{
                     let mut file = OpenOptions::new()
                         .write(true)
                         .append(true)
                         .open(LOG_NAME)
                         .unwrap();
                     wtr = Writer::from_writer(file);
-
-
                 }
+            
                 Err(_)=>{
-                    let _file = hdf5::File::create("./storag.h5").unwrap();
-                    self.initial_condition();
                     wtr = Writer::from_path(LOG_NAME).unwrap();
-
                 }
-            }
+
         }
 
         let start = Instant::now();
