@@ -4,6 +4,7 @@ pub fn add(left: usize, right: usize) -> usize {
 pub mod io;
 pub mod finit_diff;
 pub mod field;
+pub mod operators;
 pub mod system;
 
 

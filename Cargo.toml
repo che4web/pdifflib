@@ -16,5 +16,4 @@ csv = "1.1"
 serde =  { version = "1.0", features = ["derive"] }
 toml = "0.5.2"
 
-hdf5={version="0.8.1",features=['blosc']}
-
+hdf5 = { package = "hdf5-metno", version = "0.13.0" }
