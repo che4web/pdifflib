@@ -17,7 +17,7 @@ pub trait System {
     fn log_params(&self, wrt: &mut Writer<File>, time: f64);
 
     fn initial_condition(&mut self);
-    fn get_DT(&self) -> f64;
+    fn get_dt(&self) -> f64;
     fn write_mat(&mut self, time: f64) {
         let fields = self.fields();
         let data = fields.iter().map(|field| &field.f).collect();
@@ -82,7 +82,7 @@ pub trait System {
             }
             match fs::metadata(LOG_NAME) {
                 Ok(_) => {
-                    let mut file = OpenOptions::new()
+                    let file = OpenOptions::new()
                         .write(true)
                         .append(true)
                         .open(LOG_NAME)
@@ -99,12 +99,12 @@ pub trait System {
         let mut time_i = 0;
         let r = fs::create_dir("res");
         println!("{:?}", r);
-        let DT = self.get_DT();
+        let dt = self.get_dt();
 
         while time < self.get_max_time() {
             for _i in 0..500 {
-                self.next_step(DT, time);
-                time += DT;
+                self.next_step(dt, time);
+                time += dt;
             }
             time_i += 1;
             self.log_params(&mut wtr, time);

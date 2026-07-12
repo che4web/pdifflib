@@ -1,7 +1,7 @@
 use ndarray::{Array2};
 //const PEREODIC:bool  = crate::PEREODIC; 
 
-pub fn poisson_relax(phi: &Array2<f64>,psi: &mut Array2<f64>,h:f64,PEREODIC:bool)->usize{
+pub fn poisson_relax(phi: &Array2<f64>,psi: &mut Array2<f64>,h:f64,periodic:bool)->usize{
     const OMEGA:f64 =1.8; 
     //let mut delta = Array2::<f64>::zeros((N,N));
     let shape= psi.dim();
@@ -22,7 +22,7 @@ pub fn poisson_relax(phi: &Array2<f64>,psi: &mut Array2<f64>,h:f64,PEREODIC:bool
                 }
             }
         }
-        if PEREODIC{
+        if periodic{
             for  j in 0..ny{
                 psi[[0,j]]=psi[[nx-2,j]];
                 psi[[nx-1,j]]=psi[[1,j]];
@@ -188,7 +188,6 @@ pub fn laplace_mut(v: &Array2<f64>,delta:&mut Array2<f64>) {
         }
     }
 }
-
 
 
 
