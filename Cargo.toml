@@ -18,5 +18,6 @@ nalgebra="0.31.4"
 csv = "1.1"
 serde =  { version = "1.0", features = ["derive"] }
 toml = "0.5.2"
+pdifflib_derive = { path = "pdifflib_derive" }
 
 hdf5 = { package = "hdf5-metno", version = "0.13.0" }
