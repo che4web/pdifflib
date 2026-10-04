@@ -1,23 +1,20 @@
 [package]
 name = "pdifflib"
-version = "0.1.0"
+version = "0.2.1"
 edition = "2021"
 
 [workspace]
 members = [".", "pdifflib_derive"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-
-ndarray = "0.15.0"
-ndarray-stats = "0.5.0"
+ndarray = "0.17.2"
+ndarray-stats = "0.7.0"
 queues = "1.0.2"
 
-nalgebra="0.31.4"
+nalgebra = "0.31.4"
 csv = "1.1"
-serde =  { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 toml = "0.5.2"
-pdifflib_derive = { path = "pdifflib_derive" }
+pdifflib_derive = { version = "0.2.1", path = "pdifflib_derive" }
 
-hdf5 = { package = "hdf5-metno", version = "0.13.0" }
+hdf5 = { package = "hdf5-metno", version = "0.14.1" }

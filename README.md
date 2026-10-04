@@ -107,7 +107,7 @@ Example dependency for another local crate:
 [dependencies]
 pdifflib = { path = "../pdifflib" }
 pdifflib_derive = { path = "../pdifflib/pdifflib_derive" }
-ndarray = "0.15"
+ndarray = "0.17.2"
 ```
 
 Example usage:

@@ -1,6 +1,6 @@
-use csv::Writer;
 use crate::field::Field2D;
 use crate::io::{read_stage_h5, write_stage, write_stage_h5};
+use csv::Writer;
 use std::fs;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -21,7 +21,10 @@ pub trait System {
     fn write_mat(&mut self, time: f64) {
         let fields = self.fields();
         let data = fields.iter().map(|field| &field.f).collect();
-        let header = fields.iter().map(|field| field.name().to_string()).collect();
+        let header = fields
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect();
         let res = write_stage_h5(data, header, format!("stage_t={:05}", time), self.get_h());
         println!("write mat: {:?}", res);
     }
@@ -82,11 +85,7 @@ pub trait System {
             }
             match fs::metadata(LOG_NAME) {
                 Ok(_) => {
-                    let file = OpenOptions::new()
-                        .write(true)
-                        .append(true)
-                        .open(LOG_NAME)
-                        .unwrap();
+                    let file = OpenOptions::new().append(true).open(LOG_NAME).unwrap();
                     wtr = Writer::from_writer(file);
                 }
                 Err(_) => {
@@ -99,10 +98,13 @@ pub trait System {
         let mut time_i = 0;
         let r = fs::create_dir("res");
         println!("{:?}", r);
-        let dt = self.get_dt();
-
+        self.log_params(&mut wtr, time);
         while time < self.get_max_time() {
-            for _i in 0..500 {
+            for _i in 0..5000 {
+                if time >= self.get_max_time() {
+                    break;
+                }
+                let dt = self.get_dt().min(self.get_max_time() - time);
                 self.next_step(dt, time);
                 time += dt;
             }

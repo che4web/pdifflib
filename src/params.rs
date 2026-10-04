@@ -7,6 +7,8 @@ pub struct Parameter {
     pub description: &'static str,
     pub minimum: Option<f64>,
     pub exclusive_minimum: Option<f64>,
+    pub allowed_values: Option<&'static [f64]>,
+    pub default: Option<f64>,
 }
 
 pub trait ParameterSchema {
@@ -49,6 +51,20 @@ pub fn input_schema_json(parameters: &[Parameter], config_file: &str) -> String 
         if let Some(minimum) = parameter.exclusive_minimum {
             json.push_str(", \"exclusive_minimum\": ");
             json.push_str(&minimum.to_string());
+        }
+        if let Some(values) = parameter.allowed_values {
+            json.push_str(", \"allowed_values\": [");
+            for (index, value) in values.iter().enumerate() {
+                if index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&value.to_string());
+            }
+            json.push(']');
+        }
+        if let Some(default) = parameter.default {
+            json.push_str(", \"default\": ");
+            json.push_str(&default.to_string());
         }
         json.push('}');
     }
@@ -111,6 +127,8 @@ mod tests {
                 description: "A \"quoted\" value",
                 minimum: Some(0.0),
                 exclusive_minimum: None,
+                allowed_values: None,
+                default: None,
             }],
             "config.toml",
         );
@@ -130,6 +148,8 @@ mod tests {
                 description: "Nusselt number",
                 minimum: None,
                 exclusive_minimum: None,
+                allowed_values: None,
+                default: None,
             }],
             "foo.csv",
         );
@@ -138,5 +158,23 @@ mod tests {
             schema,
             "{\n  \"format\": \"csv\",\n  \"file\": \"foo.csv\",\n  \"columns\": {\n    \"nu\": {\"type\": \"number\", \"description\": \"Nusselt number\"}\n  }\n}"
         );
+    }
+
+    #[test]
+    fn includes_allowed_values_in_input_schema() {
+        let schema = input_schema_json(
+            &[Parameter {
+                name: "concentration_scheme",
+                value_type: "number",
+                description: "Concentration scheme",
+                minimum: None,
+                exclusive_minimum: None,
+                allowed_values: Some(&[0.0, 1.0]),
+                default: None,
+            }],
+            "config.toml",
+        );
+
+        assert!(schema.contains("\"allowed_values\": [0, 1]"));
     }
 }

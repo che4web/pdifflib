@@ -56,56 +56,89 @@ impl Grid {
     }
 }
 
-pub trait Field{
-    fn name(&self)-> &'static str;
-    fn get_f(&self)-> &Array2<f64>;
-    fn get_f_mut(&mut self)-> &mut Array2<f64>;
-    unsafe fn mx_b(&self,index:(usize,usize))->f64{
-        return (*self.get_f().uget((index.0,index.1))+*self.get_f().uget((index.0-1,index.1)))/2.0
+pub trait Field {
+    fn name(&self) -> &'static str;
+    fn get_f(&self) -> &Array2<f64>;
+    fn get_f_mut(&mut self) -> &mut Array2<f64>;
+    /// # Safety
+    /// `index` and `(index.0 - 1, index.1)` must be in bounds of `get_f()`;
+    /// `index.0` must be greater than zero.
+    unsafe fn mx_b(&self, index: (usize, usize)) -> f64 {
+        (*self.get_f().uget((index.0, index.1)) + *self.get_f().uget((index.0 - 1, index.1))) / 2.0
     }
 
-    unsafe fn my_b(&self,index:(usize,usize))->f64{
-        return (*self.get_f().uget((index.0,index.1))+*self.get_f().uget((index.0,index.1-1)))/2.0
+    /// # Safety
+    /// `index` and `(index.0, index.1 - 1)` must be in bounds of `get_f()`;
+    /// `index.1` must be greater than zero.
+    unsafe fn my_b(&self, index: (usize, usize)) -> f64 {
+        (*self.get_f().uget((index.0, index.1)) + *self.get_f().uget((index.0, index.1 - 1))) / 2.0
     }
 
-    unsafe fn dx_f(&self,index:(usize,usize))->f64{
-        return *self.get_f().uget((index.0+1,index.1))-*self.get_f().uget((index.0,index.1))
+    /// # Safety
+    /// `index` and `(index.0 + 1, index.1)` must be in bounds of `get_f()`,
+    /// and `index.0 + 1` must not overflow.
+    unsafe fn dx_f(&self, index: (usize, usize)) -> f64 {
+        *self.get_f().uget((index.0 + 1, index.1)) - *self.get_f().uget((index.0, index.1))
     }
 
-    unsafe fn dx_b(&self,index:(usize,usize))->f64{
-        return *self.get_f().uget((index.0,index.1))-*self.get_f().uget((index.0-1,index.1))
+    /// # Safety
+    /// `index` and `(index.0 - 1, index.1)` must be in bounds of `get_f()`;
+    /// `index.0` must be greater than zero.
+    unsafe fn dx_b(&self, index: (usize, usize)) -> f64 {
+        *self.get_f().uget((index.0, index.1)) - *self.get_f().uget((index.0 - 1, index.1))
     }
 
-    unsafe fn dy_b(&self,index:(usize,usize))->f64{
-        return *self.get_f().uget((index.0,index.1))-*self.get_f().uget((index.0,index.1-1))
+    /// # Safety
+    /// `index` and `(index.0, index.1 - 1)` must be in bounds of `get_f()`;
+    /// `index.1` must be greater than zero.
+    unsafe fn dy_b(&self, index: (usize, usize)) -> f64 {
+        *self.get_f().uget((index.0, index.1)) - *self.get_f().uget((index.0, index.1 - 1))
     }
 
-    unsafe fn dy_f(&self,index:(usize,usize))->f64{
-        return *self.get_f().uget((index.0,index.1+1))-*self.get_f().uget((index.0,index.1))
+    /// # Safety
+    /// `index` and `(index.0, index.1 + 1)` must be in bounds of `get_f()`,
+    /// and `index.1 + 1` must not overflow.
+    unsafe fn dy_f(&self, index: (usize, usize)) -> f64 {
+        *self.get_f().uget((index.0, index.1 + 1)) - *self.get_f().uget((index.0, index.1))
     }
 
-    unsafe fn dx(&self,index:(usize,usize))->f64{
-        return (*self.get_f().uget((index.0+1,index.1))-*self.get_f().uget((index.0-1,index.1)))/2.0
+    /// # Safety
+    /// `(index.0 - 1, index.1)` and `(index.0 + 1, index.1)` must be in bounds
+    /// of `get_f()`; `index.0` must be positive and `index.0 + 1` must not overflow.
+    unsafe fn dx(&self, index: (usize, usize)) -> f64 {
+        (*self.get_f().uget((index.0 + 1, index.1)) - *self.get_f().uget((index.0 - 1, index.1)))
+            / 2.0
     }
 
-    unsafe fn dy(&self,i:(usize,usize))->f64{
-        return (*self.get_f().uget((i.0,i.1+1))-*self.get_f().uget((i.0,i.1-1)))/2.0
+    /// # Safety
+    /// `(i.0, i.1 - 1)` and `(i.0, i.1 + 1)` must be in bounds of `get_f()`;
+    /// `i.1` must be positive and `i.1 + 1` must not overflow.
+    unsafe fn dy(&self, i: (usize, usize)) -> f64 {
+        (*self.get_f().uget((i.0, i.1 + 1)) - *self.get_f().uget((i.0, i.1 - 1))) / 2.0
     }
 
-    unsafe fn lap(&self,i:(usize,usize))->f64{
-        return *self.get_f().uget((i.0+1,i.1  ))+
-               *self.get_f().uget((i.0-1,i.1  ))+
-               *self.get_f().uget((i.0  ,i.1+1))+
-               *self.get_f().uget((i.0  ,i.1-1))-
-               *self.get_f().uget(i)*4.0;
+    /// # Safety
+    /// `i` and its four immediate neighbors must be in bounds of `get_f()`.
+    /// Both coordinates must be positive, and adding one to either must not overflow.
+    unsafe fn lap(&self, i: (usize, usize)) -> f64 {
+        *self.get_f().uget((i.0 + 1, i.1))
+            + *self.get_f().uget((i.0 - 1, i.1))
+            + *self.get_f().uget((i.0, i.1 + 1))
+            + *self.get_f().uget((i.0, i.1 - 1))
+            - *self.get_f().uget(i) * 4.0
     }
 }
 
-
-pub unsafe fn dx_b(f:&Array2<f64>,index:(usize,usize))->f64{
-    return *f.uget((index.0,index.1))-*f.uget((index.0-1,index.1))
+/// # Safety
+/// `index` and `(index.0 - 1, index.1)` must be in bounds of `f`;
+/// `index.0` must be greater than zero.
+pub unsafe fn dx_b(f: &Array2<f64>, index: (usize, usize)) -> f64 {
+    *f.uget((index.0, index.1)) - *f.uget((index.0 - 1, index.1))
 }
 
-pub unsafe fn dy_b(f:&Array2<f64>,index:(usize,usize))->f64{
-    return *f.uget((index.0,index.1))-*f.uget((index.0,index.1-1))
+/// # Safety
+/// `index` and `(index.0, index.1 - 1)` must be in bounds of `f`;
+/// `index.1` must be greater than zero.
+pub unsafe fn dy_b(f: &Array2<f64>, index: (usize, usize)) -> f64 {
+    *f.uget((index.0, index.1)) - *f.uget((index.0, index.1 - 1))
 }

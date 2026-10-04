@@ -74,9 +74,7 @@ pub fn write_stage_h5(
     }
     Ok(())
 }
-pub fn read_stage_h5(
-    header: Vec<String>,
-) -> hdf5::Result<(Vec<Array2<f64>>, f64)> {
+pub fn read_stage_h5(header: Vec<String>) -> hdf5::Result<(Vec<Array2<f64>>, f64)> {
     let file = hdf5::File::open_rw(STORAGE_PATH).unwrap();
     let mut stages = Vec::new();
     for group in file.group("map")?.groups()? {
