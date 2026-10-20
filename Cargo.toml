@@ -2,19 +2,21 @@
 name = "pdifflib"
 version = "0.2.1"
 edition = "2021"
+description = "Finite-difference operators, solvers, and simulation helpers for two-dimensional fields"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/che4web/pdifflib"
+documentation = "https://docs.rs/pdifflib"
+readme = "README.md"
+keywords = ["finite-difference", "pde", "simulation", "numerics"]
+categories = ["science", "mathematics"]
 
 [workspace]
 members = [".", "pdifflib_derive"]
+resolver = "2"
 
 [dependencies]
 ndarray = "0.17.2"
-ndarray-stats = "0.7.0"
-queues = "1.0.2"
-
-nalgebra = "0.31.4"
 csv = "1.1"
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.5.2"
 pdifflib_derive = { version = "0.2.1", path = "pdifflib_derive" }
 
 hdf5 = { package = "hdf5-metno", version = "0.14.1" }

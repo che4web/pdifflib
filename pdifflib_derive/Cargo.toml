@@ -2,6 +2,13 @@
 name = "pdifflib_derive"
 version = "0.2.1"
 edition = "2021"
+description = "Derive macros for pdifflib fields, parameter schemas, and logging schemas"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/che4web/pdifflib"
+documentation = "https://docs.rs/pdifflib_derive"
+readme = "README.md"
+keywords = ["derive", "finite-difference", "simulation", "schema"]
+categories = ["science", "development-tools::procedural-macro-helpers"]
 
 [lib]
 proc-macro = true

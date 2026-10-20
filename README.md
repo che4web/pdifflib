@@ -17,6 +17,7 @@ pdifflib_derive/   # procedural macros for pdifflib
 - `System` trait with a built-in simulation loop, periodic checkpoint reading, and data writing.
 - HDF5, CSV, and text output helpers.
 - `pdifflib_derive::Field` derive macro for implementing the `Field` trait on custom field structs.
+- `ParameterSchema` and `LoggingSchema` derives for machine-readable input and CSV metadata.
 
 ## Requirements
 
@@ -49,16 +50,17 @@ src/
   system.rs      # System trait and solve loop
 pdifflib_derive/
   Cargo.toml
-  src/lib.rs     # #[derive(Field)]
+  src/lib.rs     # Field, ParameterSchema, LoggingSchema derives
 ```
 
 ## Basic Usage
 
-Add the library to another local crate:
+Add the library and `ndarray` to your application:
 
 ```toml
 [dependencies]
-pdifflib = { path = "../pdifflib" }
+pdifflib = "0.2.1"
+ndarray = "0.17.2"
 ```
 
 Create a field and iterate over inner grid nodes:
@@ -97,16 +99,31 @@ let mut psi = Array2::<f64>::zeros((64, 64));
 let iterations = poisson_relax(&phi, &mut psi, 1.0, false);
 ```
 
+The discrete operators assume unit grid spacing. Divide first derivatives by
+`h`, and the Laplacian by `h * h`, when working with physical coordinates.
+`poisson_relax` accepts `h` explicitly and solves `laplace(psi) = -phi * h * h`.
+It returns a zero-based sweep index, or `1000` if convergence was not reached.
+Its stopping tolerance is `1e-6` on the absolute discrete residual.
+
+For `periodic = true`, x rows `0` and `nx - 1` are ghost rows copied from
+`nx - 2` and `1`; y boundaries remain fixed. `poisson_relax`, `dx_mut`, `dy_mut`,
+and `laplace_mut` require matching array dimensions and a grid of at least 3x3.
+Invalid dimensions panic before any unchecked access, including in release.
+The `_mut` operators overwrite only interior nodes; output boundaries are preserved.
+Exported operator macros (`dx!`, `dy!`, `lap!`, `jacobian!`, and the forward,
+backward, and averaging variants) borrow their array arguments and evaluate every
+array and index expression exactly once.
+
 ## Derive Macro
 
 `pdifflib_derive` contains a procedural macro for implementing `pdifflib::field::Field` on structs that store data in a field named `f`.
 
-Example dependency for another local crate:
+Add the derive crate when using `Field`:
 
 ```toml
 [dependencies]
-pdifflib = { path = "../pdifflib" }
-pdifflib_derive = { path = "../pdifflib/pdifflib_derive" }
+pdifflib = "0.2.1"
+pdifflib_derive = "0.2.1"
 ndarray = "0.17.2"
 ```
 
@@ -114,7 +131,6 @@ Example usage:
 
 ```rust
 use ndarray::Array2;
-use pdifflib::field::Field;
 use pdifflib_derive::Field;
 
 #[derive(Field)]
@@ -124,14 +140,52 @@ struct Vorticity {
 }
 ```
 
+## Parameter And Logging Schemas
+
+The schema derives are re-exported by `pdifflib`. Every field requires a
+description. Parameter fields support `f64`, `usize`, `bool`, and `String`;
+logging fields support `f64`, `bool`, and `String`.
+
+```rust
+use pdifflib::params::{ParameterSchema as _, LoggingSchema as _};
+
+#[derive(pdifflib::ParameterSchema)]
+struct Config {
+    #[parameter(description = "Signed offset", minimum = -2.0,
+                allowed_values = [-1.0, 0.0, 1.0], default = -1.0)]
+    offset: f64,
+}
+
+#[derive(pdifflib::LoggingSchema)]
+struct Log {
+    #[logging(description = "Simulation time")]
+    time: f64,
+}
+
+let inputs = Config::schema_json("config.toml").expect("finite numeric metadata");
+let outputs = Log::schema_json("foo.csv");
+assert!(inputs.contains("\"default\": -1"));
+assert!(outputs.contains("\"time\""));
+```
+
+`minimum`, `exclusive_minimum`, `allowed_values`, and `default` describe numeric
+metadata and accept finite integer or floating-point literals, including negative
+values. These schemas are descriptive metadata, not automatic input validation
+or a complete implementation of the JSON Schema standard.
+`ParameterSchema::schema_json` and `input_schema_json` return
+`Result<String, SchemaError>` and reject non-finite numeric attributes, including
+manually constructed `Parameter` values. The error identifies the parameter and
+attribute. `LoggingSchema::schema_json` returns `String` because it only emits
+escaped strings and does not serialize numeric attributes.
+
 ## System Trait
 
 The `System` trait describes a time-dependent simulation:
 
-```rust
+```no_run
 use csv::Writer;
 use pdifflib::field::Field2D;
-use pdifflib::system::System;
+use pdifflib::system::{SolveResult, System};
 use std::fs::File;
 
 struct MySystem {
@@ -172,18 +226,85 @@ impl System for MySystem {
         self.dt
     }
 }
+
+fn main() -> SolveResult {
+    let mut system = MySystem {
+        h: 1.0,
+        max_time: 2.0,
+        dt: 0.01,
+        u: Field2D::new("u", 64, 64),
+    };
+    system.solve(true)?;
+    Ok(())
+}
 ```
 
-Run the built-in loop with:
+The loop uses `storage.h5` in the current directory for restart data and appends
+logs to `foo.csv`. When `save_map` is enabled, it saves a checkpoint every 50,000
+steps and always saves the final state, including short runs. Restart searches
+from newest to oldest for readable datasets with matching field shapes and an
+exactly matching stored grid spacing `h`. Stage times must be finite and
+non-negative. Unreadable or incompatible candidates are skipped in favor of an
+older usable stage. `initial_condition` runs only for new storage or storage with
+no stages. If stages exist but none is usable, `solve` returns an error without
+initializing or overwriting the fields.
 
-```rust
-system.solve(true);
+`h` is stored as a scalar HDF5 attribute on every new stage and must be finite and
+positive. Legacy stages without `h` cannot be used for automatic restart. They
+can still be read with `io::read_stage_h5` and explicitly rewritten using
+`io::write_stage_h5` with their known original grid spacing. The low-level reader
+checks readability but does not require the caller's grid shape or spacing.
+
+When replacing a stage, the writer flushes its new data under `map/.pending`,
+moves the old stage to `map/.previous/<stage-name>`, and retains that backup until
+the new stage is installed and flushed. Readers can use the backup after an
+interrupted replacement; the next write completes recovery before proceeding.
+This protocol requires the HDF5 file itself to remain readable; it is not a
+filesystem-level atomic transaction.
+
+`solve` returns errors for failed I/O and invalid time steps. `get_dt` must return
+a finite positive step that advances the clock; the final step is clipped to the
+remaining duration. `get_max_time` is read once at startup and must be finite and
+non-negative. User-provided `next_step` is responsible for applying boundary
+conditions as required by the numerical scheme.
+
+`System::read_mat` returns `hdf5::Result<f64>` and preserves fields on a failed
+restart. `System::write_mat` returns `hdf5::Result<()>`; `System::write_last` and text output
+helpers return `std::io::Result<()>`. Handle these results with `?` or explicitly.
+`log_params` retains its existing callback signature; custom implementations are
+responsible for handling their own write errors. The loop flushes its CSV writer
+before returning successfully.
+
+## Publishing
+
+From a release-ready checkout:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo test --release --workspace
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+cargo package --workspace
+cargo publish --workspace --dry-run
 ```
 
-When `save_map` is enabled, the loop writes HDF5 stages and uses `storage.h5` for restart data.
+Recent Cargo versions can package and dry-run both crates together, resolving
+the unpublished workspace dependency through a temporary registry. For actual
+publication, publish `pdifflib_derive` first, wait for its matching version to be
+available in the crates.io index, then dry-run and publish `pdifflib`. Both
+manifests must reference the intended derive version. On older Cargo versions,
+verify the derive package individually until it is available in the index.
+
+## License
+
+Licensed under either the MIT License or the Apache License, Version 2.0, at your
+option. Both license texts are provided in
+[LICENSE](https://github.com/che4web/pdifflib/blob/main/LICENSE) and included in each
+published package.
 
 ## Notes
 
-- Many low-level finite-difference methods use unchecked indexing internally for speed. Call them only on arrays with valid sizes and indices.
+- Unsafe pointwise `Field` methods require the caller to satisfy their documented index preconditions. Safe bulk methods validate dimensions before unchecked access.
 - `Cargo.lock` is ignored because this repository is currently a library workspace.
 - Generated files such as `target/`, `storage.h5`, `foo.csv`, and `res/` should not be committed.

@@ -11,10 +11,29 @@ pub struct Parameter {
     pub default: Option<f64>,
 }
 
+/// A non-finite numeric attribute cannot be represented in a JSON schema.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SchemaError {
+    pub parameter: &'static str,
+    pub attribute: &'static str,
+}
+
+impl std::fmt::Display for SchemaError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "parameter {}: {} must be finite",
+            self.parameter, self.attribute
+        )
+    }
+}
+
+impl std::error::Error for SchemaError {}
+
 pub trait ParameterSchema {
     fn parameters() -> &'static [Parameter];
 
-    fn schema_json(config_file: &str) -> String {
+    fn schema_json(config_file: &str) -> Result<String, SchemaError> {
         input_schema_json(Self::parameters(), config_file)
     }
 }
@@ -29,7 +48,34 @@ pub trait LoggingSchema {
     }
 }
 
-pub fn input_schema_json(parameters: &[Parameter], config_file: &str) -> String {
+/// Produces input metadata, rejecting NaN and infinities in all numeric attributes.
+pub fn input_schema_json(
+    parameters: &[Parameter],
+    config_file: &str,
+) -> Result<String, SchemaError> {
+    for parameter in parameters {
+        for (attribute, value) in [
+            ("minimum", parameter.minimum),
+            ("exclusive_minimum", parameter.exclusive_minimum),
+            ("default", parameter.default),
+        ] {
+            if value.is_some_and(|value| !value.is_finite()) {
+                return Err(SchemaError {
+                    parameter: parameter.name,
+                    attribute,
+                });
+            }
+        }
+        if parameter
+            .allowed_values
+            .is_some_and(|values| values.iter().any(|v| !v.is_finite()))
+        {
+            return Err(SchemaError {
+                parameter: parameter.name,
+                attribute: "allowed_values",
+            });
+        }
+    }
     let mut json = String::from("{\n  \"config_format\": \"toml\",\n  \"config_file\": ");
     push_json_string(&mut json, config_file);
     json.push_str(",\n  \"parameters\": {");
@@ -70,7 +116,7 @@ pub fn input_schema_json(parameters: &[Parameter], config_file: &str) -> String 
     }
 
     json.push_str("\n  }\n}");
-    json
+    Ok(json)
 }
 
 pub fn logging_schema_json(columns: &[LogColumn], log_file: &str) -> String {
@@ -131,7 +177,8 @@ mod tests {
                 default: None,
             }],
             "config.toml",
-        );
+        )
+        .unwrap();
 
         assert_eq!(
             schema,
@@ -173,8 +220,40 @@ mod tests {
                 default: None,
             }],
             "config.toml",
-        );
+        )
+        .unwrap();
 
         assert!(schema.contains("\"allowed_values\": [0, 1]"));
+    }
+
+    #[test]
+    fn rejects_all_nonfinite_numeric_attributes_from_manual_parameters() {
+        const CASES: [(f64, &[f64]); 3] = [
+            (f64::NAN, &[0.0, f64::NAN]),
+            (f64::INFINITY, &[0.0, f64::INFINITY]),
+            (f64::NEG_INFINITY, &[0.0, f64::NEG_INFINITY]),
+        ];
+        for (value, allowed) in CASES {
+            for attribute in ["minimum", "exclusive_minimum", "default", "allowed_values"] {
+                let mut parameter = Parameter {
+                    name: "offset",
+                    value_type: "number",
+                    description: "Offset",
+                    minimum: None,
+                    exclusive_minimum: None,
+                    default: None,
+                    allowed_values: None,
+                };
+                match attribute {
+                    "minimum" => parameter.minimum = Some(value),
+                    "exclusive_minimum" => parameter.exclusive_minimum = Some(value),
+                    "default" => parameter.default = Some(value),
+                    _ => parameter.allowed_values = Some(allowed),
+                }
+                let error = input_schema_json(&[parameter], "config.toml").unwrap_err();
+                assert_eq!(error.parameter, "offset");
+                assert_eq!(error.attribute, attribute);
+            }
+        }
     }
 }

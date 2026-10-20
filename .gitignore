@@ -1,2 +1,5 @@
 /target
 /Cargo.lock
+/storage.h5
+/foo.csv
+/res/
