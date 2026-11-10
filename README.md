@@ -279,6 +279,13 @@ before returning successfully.
 
 From a release-ready checkout:
 
+- Keep both package versions and the `pdifflib_derive` dependency version in sync,
+  and update the dependency examples in both READMEs when changing versions.
+- Review `CHANGELOG.md`, especially API changes and checkpoint compatibility.
+  After the first publication, breaking API changes require a new minor version
+  while the crates are at `0.x`.
+- Install the HDF5 development libraries described above.
+
 ```bash
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
@@ -295,6 +302,22 @@ publication, publish `pdifflib_derive` first, wait for its matching version to b
 available in the crates.io index, then dry-run and publish `pdifflib`. Both
 manifests must reference the intended derive version. On older Cargo versions,
 verify the derive package individually until it is available in the index.
+
+The GitHub Actions workflow in `.github/workflows/ci.yml` runs the same checks on
+Ubuntu, including a publish dry run. It never uploads packages or needs a token.
+
+Once the checks pass, commit the release changes so Cargo packages a clean
+checkout. Authenticate locally with `cargo login` (do not commit the token), then:
+
+```bash
+cargo publish -p pdifflib_derive
+# Wait until crates.io has indexed pdifflib_derive 0.2.1, then:
+cargo publish -p pdifflib --dry-run
+cargo publish -p pdifflib
+```
+
+Publishing is permanent: an uploaded version cannot be replaced. After both
+uploads succeed, date the changelog entry and create the release tag.
 
 ## License
 

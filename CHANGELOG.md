@@ -40,6 +40,8 @@
 
 ### Packaging
 
+- Add CI checks for formatting, linting, debug/release tests, documentation, and
+  a workspace publish dry run; document authentication and publication order.
 - Add package metadata and MIT OR Apache-2.0 licensing for both crates.
 - Compile the main README examples as rustdoc tests.
 - Remove unused direct dependencies on nalgebra, ndarray-stats, queues, serde,
